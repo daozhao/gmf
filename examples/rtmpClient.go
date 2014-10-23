@@ -8,7 +8,12 @@ import (
 	"strconv"
 	"time"
 	"sync/atomic"
+	"os/signal"
+	"syscall"
 )
+
+var runingCount int32
+var cancelRun bool = false
 
 func runClient(url string,no int,exitChan chan int) {
 
@@ -23,7 +28,7 @@ func runClient(url string,no int,exitChan chan int) {
 	}
 	defer inputCtx.CloseInputAndRelease()
 
-	inputCtx.Dump()
+//	inputCtx.Dump()
 
 	fmt.Println("===================================")
 
@@ -32,6 +37,10 @@ func runClient(url string,no int,exitChan chan int) {
 //		fmt.Print("Thread:",no," ")
 //		packet.DumpAtLine()
 		Release(packet)
+
+		if cancelRun {
+			break
+		}
 	}
 }
 
@@ -62,7 +71,21 @@ func main() {
 	fmt.Println("Run test,url:",srcFileName," count:",count)
 //	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	var runingCount int32
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	go func() {
+		for s := range sigc {
+			fmt.Println("Recieve sigc:",s)
+			cancelRun = true
+			//os.Exit(0)
+		}
+	}()
+
+
 	runingCount = 0
 	go func() {
 		for i:=0 ; i < count ; i++ {
@@ -70,6 +93,9 @@ func main() {
 			time.Sleep(time.Second )
 			atomic.AddInt32(&runingCount,1)
 			go runClient(srcFileName,i,exitChan)
+			if cancelRun {
+				break
+			}
 		}
 	}()
 
@@ -77,7 +103,7 @@ func main() {
 	for {
 		select {
 		case  no := <- exitChan :
-			fmt.Println("Thread(",no,") is exit.")
+			fmt.Println("Thread(",no,") is exit. Now is ",runingCount,"'s thread running")
 			atomic.AddInt32(&runingCount,-1)
 			if runingCount <= 0 {
 				fmt.Println("Program will be exit. count:",runingCount)
@@ -86,6 +112,7 @@ func main() {
 		case <-time.After(time.Second * 2) :
 			fmt.Println("Program is running. count:",runingCount," at time",time.Now())
 		}
+
 	}
 
 
