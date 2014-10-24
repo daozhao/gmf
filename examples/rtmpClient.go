@@ -43,7 +43,7 @@ func runClient(url string,no int,exitChan chan int) {
 				missPacketCount = (packet.Pts()-ptsInfo[packet.StreamIndex()])/packet.Duration()
 			}
 			if ptsInfo[packet.StreamIndex()] + 2 <= packet.Pts() &&  i > 200 { //这里需要大于200的包是因为200个包之前一般都缺包，不清楚为什么。
-				fmt.Print("[", no ,"]Stream[",packet.StreamIndex(),"] i=",i," miss packet. need duration:",
+				fmt.Println("      [", no ,"]Stream[",packet.StreamIndex(),"] i=",i," miss packet. need duration:",
 					packet.Pts() - ptsInfo[packet.StreamIndex()]," miss packetCount:",missPacketCount )
 //				packet.DumpAtLine()
 			}
