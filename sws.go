@@ -42,7 +42,16 @@ func NewSwsCtx(src *CodecCtx, dst *CodecCtx, method int) *SwsCtx {
 	return &SwsCtx{swsCtx: ctx}
 }
 
-func (this *SwsCtx) Free () {
+func NewPicSwsCtx(srcWidth int, srcHeight int, srcPixFmt int32, dst *CodecCtx, method int) *SwsCtx {
+	ctx := C.sws_getContext(C.int(srcWidth), C.int(srcHeight), srcPixFmt, C.int(dst.Width()), C.int(dst.Height()), dst.PixFmt(), C.int(method), nil, nil, nil)
+
+	if ctx == nil {
+		return nil
+	}
+
+	return &SwsCtx{swsCtx: ctx}
+}
+func (this *SwsCtx) Free() {
 	C.sws_freeContext(this.swsCtx)
 }
 func (this *SwsCtx) Scale(src *Frame, dst *Frame) {

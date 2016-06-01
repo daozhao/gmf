@@ -12,8 +12,8 @@ import (
 var (
 	inputSampleFilename  string = "examples/tests-sample.mp4"
 	outputSampleFilename string = "examples/tests-output.mp4"
-	inputSampleWidth     int    = 640
-	inputSampleHeight    int    = 480
+	inputSampleWidth     int    = 320
+	inputSampleHeight    int    = 200
 )
 
 func assert(i interface{}, err error) interface{} {
@@ -45,7 +45,7 @@ func TestCtxInput(t *testing.T) {
 
 func TestCtxOutput(t *testing.T) {
 	cases := map[interface{}]error{
-		outputSampleFilename:                       nil,
+		outputSampleFilename:                        nil,
 		FindOutputFmt("mp4", "", ""):                nil,
 		FindOutputFmt("", outputSampleFilename, ""): nil,
 		FindOutputFmt("", "", "application/mp4"):    nil,
@@ -141,6 +141,23 @@ func TestPacketsIterator(t *testing.T) {
 	}
 }
 
+func TestGetNextPacket(t *testing.T) {
+	inputCtx, err := NewInputCtx(inputSampleFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer inputCtx.CloseInputAndRelease()
+
+	packet := inputCtx.GetNextPacket()
+	if packet.Size() <= 0 {
+		t.Fatal("Expected size > 0")
+	} else {
+		log.Printf("One packet has been read. size: %v, pts: %v\n", packet.Size(), packet.Pts())
+	}
+	Release(packet)
+}
+
 var section *io.SectionReader
 
 func customReader() ([]byte, int) {
@@ -148,7 +165,7 @@ func customReader() ([]byte, int) {
 	var err error
 
 	if section == nil {
-		file, err = os.Open("examples/sample-enc-mpeg4.mp4")
+		file, err = os.Open(inputSampleFilename)
 		if err != nil {
 			panic(err)
 		}
@@ -185,7 +202,7 @@ func TestAVIOContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ictx.SetPb(avioCtx).SetFlag(AV_NOPTS_VALUE).OpenInput("")
+	ictx.SetPb(avioCtx).OpenInput("")
 
 	for p := range ictx.GetNewPackets() {
 		_ = p
@@ -213,7 +230,7 @@ func ExampleNewAVIOContext(t *testing.T) {
 	}
 
 	// Setting up AVFormatContext.pb
-	ctx.SetPb(avioCtx).SetFlag(AV_NOPTS_VALUE)
+	ctx.SetPb(avioCtx)
 
 	// Calling OpenInput with empty arg, because all files stuff we're doing in custom reader.
 	// But the library have to initialize some stuff, so we call it anyway.
