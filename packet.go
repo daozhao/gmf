@@ -151,6 +151,10 @@ func (this *Packet) Dump() {
 	fmt.Println(this.avPacket)
 	fmt.Println("pkt:{\n", "pts:", this.avPacket.pts, "\ndts:", this.avPacket.dts, "\ndata:", string(C.GoBytes(unsafe.Pointer(this.avPacket.data), 128)), "size:", this.avPacket.size, "\n}")
 }
+func (this *Packet) DumpLine() {
+	fmt.Println(this.avPacket)
+	fmt.Println("pkt:{", "pts:", this.avPacket.pts, "dts:", this.avPacket.dts,  "size:", this.avPacket.size, "}")
+}
 
 func (this *Packet) SetStreamIndex(val int) *Packet {
 	this.avPacket.stream_index = C.int(val)

@@ -288,6 +288,7 @@ func (this *FmtCtx) GetNewPackets() chan *Packet {
 			p := NewPacket()
 
 			if ret := C.av_read_frame(this.avCtx, &p.avPacket); int(ret) < 0 {
+				fmt.Println("[debug]GetNewPacket error:",int(ret))
 				break
 			}
 

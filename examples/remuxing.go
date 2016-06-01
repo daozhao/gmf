@@ -42,7 +42,8 @@ func main() {
 	defer inputCtx.CloseInputAndRelease()
 	inputCtx.Dump()
 
-	outputCtx := assert(NewOutputCtxWithFormatName(dstFileName,"mpegts")).(*FmtCtx)
+	outputCtx := assert(NewOutputCtxWithFormatName(dstFileName,"rtp")).(*FmtCtx)
+//	outputCtx := assert(NewOutputCtx(dstFileName)).(*FmtCtx)
 	defer outputCtx.CloseOutputAndRelease()
 
 	fmt.Println("===================================")
