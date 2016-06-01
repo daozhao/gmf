@@ -59,6 +59,9 @@ static int select_channel_layout(AVCodec *codec) {
     return best_ch_layout;
 }
 
+static void call_av_freep(AVCodecContext *out){
+    return av_freep(&out);
+}
 */
 import "C"
 
@@ -66,20 +69,32 @@ import (
 	"errors"
 	"fmt"
 	"unsafe"
-//	"log"
+	//	"log"
 )
 
 var (
-	AV_CODEC_ID_MPEG1VIDEO   int   = C.AV_CODEC_ID_MPEG1VIDEO
-	AV_CODEC_ID_MPEG2VIDEO   int   = C.AV_CODEC_ID_MPEG2VIDEO
-	AV_CODEC_ID_H264         int   = C.AV_CODEC_ID_H264
-	AV_CODEC_ID_MPEG4        int   = C.AV_CODEC_ID_MPEG4
-	AV_CODEC_ID_JPEG2000     int   = C.AV_CODEC_ID_JPEG2000
+	AV_CODEC_ID_MPEG1VIDEO int = C.AV_CODEC_ID_MPEG1VIDEO
+	AV_CODEC_ID_MPEG2VIDEO int = C.AV_CODEC_ID_MPEG2VIDEO
+	AV_CODEC_ID_H264       int = C.AV_CODEC_ID_H264
+	AV_CODEC_ID_MPEG4      int = C.AV_CODEC_ID_MPEG4
+	AV_CODEC_ID_JPEG2000   int = C.AV_CODEC_ID_JPEG2000
+	AV_CODEC_ID_MJPEG      int = C.AV_CODEC_ID_MJPEG
+	AV_CODEC_ID_MSMPEG4V1  int = C.AV_CODEC_ID_MSMPEG4V1
+	AV_CODEC_ID_MSMPEG4V2  int = C.AV_CODEC_ID_MSMPEG4V2
+	AV_CODEC_ID_MSMPEG4V3  int = C.AV_CODEC_ID_MSMPEG4V3
+	AV_CODEC_ID_WMV1       int = C.AV_CODEC_ID_WMV1
+	AV_CODEC_ID_WMV2       int = C.AV_CODEC_ID_WMV2
+	AV_CODEC_ID_FLV1       int = C.AV_CODEC_ID_FLV1
+	AV_CODEC_ID_PNG        int = C.AV_CODEC_ID_PNG
+	AV_CODEC_ID_TIFF       int = C.AV_CODEC_ID_TIFF
+	AV_CODEC_ID_GIF        int = C.AV_CODEC_ID_GIF
+
 	CODEC_FLAG_GLOBAL_HEADER int   = C.CODEC_FLAG_GLOBAL_HEADER
 	FF_MB_DECISION_SIMPLE    int   = C.FF_MB_DECISION_SIMPLE
 	FF_MB_DECISION_BITS      int   = C.FF_MB_DECISION_BITS
 	FF_MB_DECISION_RD        int   = C.FF_MB_DECISION_RD
 	AV_SAMPLE_FMT_S16        int32 = C.AV_SAMPLE_FMT_S16
+	AV_SAMPLE_FMT_S16P       int32 = C.AV_SAMPLE_FMT_S16P
 )
 
 type SampleFmt int
@@ -180,7 +195,7 @@ func (this *CodecCtx) Open(dict *Dict) error {
 }
 
 func (this *CodecCtx) Close() {
-	if ( nil != this.avCodecCtx ) {
+	if nil != this.avCodecCtx {
 		C.avcodec_close(this.avCodecCtx)
 		this.avCodecCtx = nil
 	}
@@ -192,7 +207,7 @@ func (this *CodecCtx) Free() {
 
 func (this *CodecCtx) CloseAndRelease() {
 	this.Close()
-	C.av_freep(unsafe.Pointer(&this.avCodecCtx))
+	C.call_av_freep(unsafe.Pointer(this.avCodecCtx))
 }
 
 // @todo
@@ -201,8 +216,8 @@ func (this *CodecCtx) SetOpt() {
 	C.av_opt_set_int(unsafe.Pointer(this.avCodecCtx), C.CString("refcounted_frames"), 1, 0)
 }
 
-func (this *CodecCtx) Codec() *Codec{
-	return &Codec{avCodec:this.avCodecCtx.codec}
+func (this *CodecCtx) Codec() *Codec {
+	return &Codec{avCodec: this.avCodecCtx.codec}
 }
 
 func (this *CodecCtx) Id() int {
@@ -257,6 +272,9 @@ func (this *CodecCtx) TimeBase() AVRational {
 func (this *CodecCtx) ChannelLayout() int {
 	return int(this.avCodecCtx.channel_layout)
 }
+func (this *CodecCtx) SetChannelLayout(channelLayout int) {
+	this.avCodecCtx.channel_layout = C.uint64_t(channelLayout)
+}
 
 func (this *CodecCtx) BitRate() int {
 	return int(this.avCodecCtx.bit_rate)
@@ -267,7 +285,7 @@ func (this *CodecCtx) Channels() int {
 }
 
 func (this *CodecCtx) SetBitRate(val int) *CodecCtx {
-	this.avCodecCtx.bit_rate = C.int(val)
+	this.avCodecCtx.bit_rate = C.int64_t(val)
 	return this
 }
 
@@ -331,6 +349,14 @@ func (this *CodecCtx) SetSampleRate(val int) *CodecCtx {
 	this.avCodecCtx.sample_rate = C.int(val)
 	return this
 }
+
+var (
+	FF_COMPLIANCE_VERY_STRICT  int = C.FF_COMPLIANCE_VERY_STRICT
+	FF_COMPLIANCE_STRICT       int = C.FF_COMPLIANCE_STRICT
+	FF_COMPLIANCE_NORMAL       int = C.FF_COMPLIANCE_NORMAL
+	FF_COMPLIANCE_UNOFFICIAL   int = C.FF_COMPLIANCE_UNOFFICIAL
+	FF_COMPLIANCE_EXPERIMENTAL int = C.FF_COMPLIANCE_EXPERIMENTAL
+)
 
 func (this *CodecCtx) SetStrictCompliance(val int) *CodecCtx {
 	this.avCodecCtx.strict_std_compliance = C.int(val)

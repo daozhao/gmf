@@ -79,6 +79,64 @@ func (this *Packet) Decode(cc *CodecCtx) (*Frame, bool, int, error) {
 	return frames[cc.Type()], (gotOutput > 0), int(ret), nil
 }
 
+func (this *Packet) DecodeToNewFrame(cc *CodecCtx) (*Frame, bool, int, error) {
+	f := &Frame{avFrame: C.av_frame_alloc(), mediaType: cc.Type()}
+	return this.decode(cc, f)
+}
+
+func (this *Packet) decode(cc *CodecCtx, frame *Frame) (*Frame, bool, int, error) {
+	var gotOutput int
+	var ret int = 0
+
+	switch cc.Type() {
+	case AVMEDIA_TYPE_AUDIO:
+		ret = int(C.avcodec_decode_audio4(cc.avCodecCtx, frame.avFrame, (*C.int)(unsafe.Pointer(&gotOutput)), &this.avPacket))
+		if ret < 0 {
+			return nil, false, int(ret), errors.New(fmt.Sprintf("Unable to decode audio packet, averror: %s", AvError(int(ret))))
+		}
+
+		break
+
+	case AVMEDIA_TYPE_VIDEO:
+		ret = int(C.avcodec_decode_video2(cc.avCodecCtx, frame.avFrame, (*C.int)(unsafe.Pointer(&gotOutput)), &this.avPacket))
+		if ret < 0 {
+			return nil, false, int(ret), errors.New(fmt.Sprintf("Unable to decode video packet, averror: %s", AvError(int(ret))))
+		}
+
+		break
+
+	default:
+		return nil, false, int(ret), errors.New(fmt.Sprintf("Unknown codec type: %v", cc.Type()))
+	}
+
+	return frame, (gotOutput > 0), int(ret), nil
+}
+
+func (this *Packet) GetNextFrame(cc *CodecCtx) (*Frame, error) {
+	for {
+		if this.avPacket.size <= 0 {
+			break
+		}
+
+		frame, ready, ret, err := this.DecodeToNewFrame(cc)
+		if !ready {
+			Release(frame)
+
+			if ret < 0 || err != nil {
+				return nil, err
+			}
+		}
+
+		C.shift_data(&this.avPacket, C.int(ret))
+
+		if ready {
+			return frame, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (this *Packet) Frames(cc *CodecCtx) chan *Frame {
 	yield := make(chan *Frame)
 
@@ -107,20 +165,24 @@ func (this *Packet) Frames(cc *CodecCtx) chan *Frame {
 	return yield
 }
 
-func (this *Packet) Pts() int {
-	return int(this.avPacket.pts)
+func (this *Packet) Pts() int64 {
+	return int64(this.avPacket.pts)
 }
 
-func (this *Packet) SetPts(pts int) {
+func (this *Packet) SetPts(pts int64) {
 	this.avPacket.pts = C.int64_t(pts)
 }
 
-func (this *Packet) Dts() int {
-	return int(this.avPacket.dts)
+func (this *Packet) Dts() int64 {
+	return int64(this.avPacket.dts)
 }
 
-func (this *Packet) SetDts(val int) {
+func (this *Packet) SetDts(val int64) {
 	this.avPacket.dts = _Ctype_int64_t(val)
+}
+
+func (this *Packet) Flags() int {
+	return int(this.avPacket.flags)
 }
 
 func (this *Packet) Duration() int {
@@ -128,7 +190,7 @@ func (this *Packet) Duration() int {
 }
 
 func (this *Packet) SetDuration(duration int) {
-	this.avPacket.duration = C.int(duration)
+	this.avPacket.duration = C.int64_t(duration)
 }
 
 func (this *Packet) StreamIndex() int {
@@ -139,12 +201,20 @@ func (this *Packet) Size() int {
 	return int(this.avPacket.size)
 }
 
-func (this *Packet) Pos() int {
-	return int(this.avPacket.pos)
+func (this *Packet) Pos() int64 {
+	return int64(this.avPacket.pos)
 }
 
 func (this *Packet) Data() []byte {
 	return C.GoBytes(unsafe.Pointer(this.avPacket.data), C.int(this.avPacket.size))
+}
+
+func (this *Packet) Clone() *Packet {
+	np := NewPacket()
+
+	C.av_copy_packet(&np.avPacket, &this.avPacket)
+
+	return np
 }
 
 func (this *Packet) Dump() {
@@ -162,5 +232,5 @@ func (this *Packet) SetStreamIndex(val int) *Packet {
 }
 
 func (this *Packet) Free() {
-	C.av_free_packet(&this.avPacket)
+	C.av_packet_unref(&this.avPacket)
 }
